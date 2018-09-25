@@ -1,9 +1,9 @@
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/libxml2-2.9.4)
+set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/libxml2-2.9.8)
 vcpkg_download_distfile(ARCHIVE
-    URLS "ftp://xmlsoft.org/libxml2/libxml2-2.9.4.tar.gz" "http://xmlsoft.org/sources/libxml2-2.9.4.tar.gz"
-    FILENAME "libxml2-2.9.4.tar.gz"
-    SHA512 f5174ab1a3a0ec0037a47f47aa47def36674e02bfb42b57f609563f84c6247c585dbbb133c056953a5adb968d328f18cbc102eb0d00d48eb7c95478389e5daf9
+    URLS "ftp://xmlsoft.org/libxml2/libxml2-2.9.8.tar.gz" "http://xmlsoft.org/sources/libxml2-2.9.8.tar.gz"
+    FILENAME "libxml2-2.9.8.tar.gz"
+    SHA512 28903282c7672206effa1362fd564cbe4cf5be44264b083a7d14e383f73bccd1b81bcafb5f4f2f56f5e7e05914c660e27668c9ce91b1b9f256ef5358d55ba917   
 )
 vcpkg_extract_source_archive(${ARCHIVE})
 
