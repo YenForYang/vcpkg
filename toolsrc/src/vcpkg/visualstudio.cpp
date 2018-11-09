@@ -12,24 +12,6 @@ namespace vcpkg::VisualStudio
     static constexpr CStringView V_120 = "v120";
     static constexpr CStringView V_140 = "v140";
     static constexpr CStringView V_141 = "v141";
-    static constexpr std::array<CStringView, 3> preferred_toolsets{V_141, V_140, V_120};
-
-    static constexpr CStringView cmake_V_120_x86 = "Visual Studio 12 2013";
-    static constexpr CStringView cmake_V_120_x64 = "Visual Studio 12 2013 Win64";
-    static constexpr CStringView cmake_V_120_ARM = "Visual Studio 12 2013 ARM";
-
-    static constexpr CStringView cmake_V_140_x86 = "Visual Studio 14 2015";
-    static constexpr CStringView cmake_V_140_x64 = "Visual Studio 14 2015 Win64";
-    static constexpr CStringView cmake_V_140_ARM = "Visual Studio 14 2015 ARM";
-
-    static constexpr CStringView cmake_V_141_x86 = "Visual Studio 15 2017";
-    static constexpr CStringView cmake_V_141_x64 = "Visual Studio 15 2017 Win64";
-    static constexpr CStringView cmake_V_141_ARM = "Visual Studio 15 2017 ARM";
-    static constexpr CStringView cmake_V_141_ARM64 = "Visual Studio 15 2017";
-
-    static constexpr CStringView unknown = "unknown";
-
-    const std::array<CStringView, 3>& get_preferred_toolset_names() noexcept { return preferred_toolsets; }
 
     struct VisualStudioInstance
     {
@@ -148,9 +130,9 @@ namespace vcpkg::VisualStudio
         {
             // We want lexically_normal(), but it is not available
             // Correct root path might be 2 or 3 levels up, depending on if the path has trailing backslash. Try both.
-            auto common7_tools = fs::path{*path_as_string};
-            append_if_has_cl(fs::path{*path_as_string}.parent_path().parent_path());
-            append_if_has_cl(fs::path{*path_as_string}.parent_path().parent_path().parent_path());
+            auto common7_tools = fs::path {*path_as_string};
+            append_if_has_cl(fs::path {*path_as_string}.parent_path().parent_path());
+            append_if_has_cl(fs::path {*path_as_string}.parent_path().parent_path().parent_path());
         }
 
         // VS2015 instance from Program Files
@@ -161,7 +143,7 @@ namespace vcpkg::VisualStudio
 
     std::vector<std::string> get_visual_studio_instances(const VcpkgPaths& paths)
     {
-        std::vector<VisualStudioInstance> sorted{get_visual_studio_instances_internal(paths)};
+        std::vector<VisualStudioInstance> sorted {get_visual_studio_instances_internal(paths)};
         std::sort(sorted.begin(), sorted.end(), VisualStudioInstance::preferred_first_comparator);
         return Util::fmap(sorted, [](const VisualStudioInstance& instance) { return instance.to_string(); });
     }
@@ -178,12 +160,12 @@ namespace vcpkg::VisualStudio
         std::vector<Toolset> found_toolsets;
         std::vector<Toolset> excluded_toolsets;
 
-        const SortedVector<VisualStudioInstance> sorted{get_visual_studio_instances_internal(paths),
-                                                        VisualStudioInstance::preferred_first_comparator};
+        const SortedVector<VisualStudioInstance> sorted {get_visual_studio_instances_internal(paths),
+                                                         VisualStudioInstance::preferred_first_comparator};
 
-        //const bool v140_is_available = Util::find_if(sorted, [&](const VisualStudioInstance& vs_instance) {
-        //                                   return vs_instance.major_version() == "14";
-        //                               }) != sorted.end();
+        const bool v140_is_available = Util::find_if(sorted, [&](const VisualStudioInstance& vs_instance) {
+                                           return vs_instance.major_version() == "14";
+                                       }) != sorted.end();
 
         for (const VisualStudioInstance& vs_instance : sorted)
         {
@@ -199,7 +181,7 @@ namespace vcpkg::VisualStudio
                 if (!fs.exists(vcvarsall_bat)) continue;
 
                 // Get all supported architectures
-                std::vector<ArchOption> supported_architectures;
+                std::vector<ToolsetArchOption> supported_architectures;
                 if (fs.exists(vcvarsall_dir / "vcvars32.bat"))
                     supported_architectures.push_back({"x86", CPU::X86, CPU::X86});
                 if (fs.exists(vcvarsall_dir / "vcvars64.bat"))
@@ -217,49 +199,6 @@ namespace vcpkg::VisualStudio
                 if (fs.exists(vcvarsall_dir / "vcvarsamd64_arm64.bat"))
                     supported_architectures.push_back({"amd64_arm64", CPU::X64, CPU::ARM64});
 
-                // Discover available platform toolsets
-                for (ArchOption& arch : supported_architectures)
-                {
-                    const auto vs_arch = [](const ArchOption& arch) noexcept
-                    {
-                        switch (arch.target_arch)
-                        {
-                            case CPU::X86: return "Win32";
-                            case CPU::X64: return "x64";
-                            case CPU::ARM: return "ARM";
-                            case CPU::ARM64: return "ARM64";
-                            default: return unknown.c_str(); //<- Please update if you see that;
-                        };
-                    };
-                    const auto vs15_cmake = [](const ArchOption& arch) noexcept
-                    {
-                        switch (arch.target_arch)
-                        {
-                            case CPU::X86: return cmake_V_141_x86;
-                            case CPU::X64: return cmake_V_141_x64;
-                            case CPU::ARM: return cmake_V_141_ARM;
-                            case CPU::ARM64: return cmake_V_141_ARM64;
-                            default: return unknown; //<- Please update if you see that;
-                        };
-                    };
-
-                    const fs::path platformpath = vs_instance.root_path / "Common7" / "IDE" / "VC" / "VCTargets" /
-                                                  "Platforms" / vs_arch(arch) / "PlatformToolsets";
-                    if (fs.exists(platformpath))
-                    {
-                        std::vector<fs::path> platformsubdirs = fs.get_files_non_recursive(platformpath);
-                        Util::unstable_keep_if(platformsubdirs,
-                                               [&fs](const fs::path& path) { return fs.is_directory(path); });
-
-                        for (const fs::path& platform : platformsubdirs)
-                        {
-                            const auto tmp = platform.filename();
-                            const ToolsetMinimal Toolmin{tmp.u8string(), major_version, vs15_cmake(arch).c_str()};
-                            arch.supported_toolsets.push_back(Toolmin);
-                        }
-                    }
-                }
-
                 // Locate the "best" MSVC toolchain version
                 const fs::path msvc_path = vc_dir / "Tools" / "MSVC";
                 std::vector<fs::path> msvc_subdirectories = fs.get_files_non_recursive(msvc_path);
@@ -274,39 +213,39 @@ namespace vcpkg::VisualStudio
 
                 for (const fs::path& subdir : msvc_subdirectories)
                 {
-                    for (const ArchOption& arch : supported_architectures)
+                    const fs::path dumpbin_path = subdir / "bin" / "HostX86" / "x86" / "dumpbin.exe";
+                    paths_examined.push_back(dumpbin_path);
+                    if (fs.exists(dumpbin_path))
                     {
-                        const std::string Host_arch = "Host" + System::to_string(arch.host_arch);
-                        const fs::path dumpbin_path = subdir / "bin" / Host_arch.c_str() /
-                                                      System::to_string(arch.target_arch).c_str() / "dumpbin.exe";
+                        const Toolset v141_toolset {
+                            vs_instance.root_path, dumpbin_path, vcvarsall_bat, {}, V_141, supported_architectures};
 
-                        paths_examined.push_back(dumpbin_path);
-                        if (fs.exists(dumpbin_path))
+                        const auto english_language_pack = dumpbin_path.parent_path() / "1033";
+
+                        if (!fs.exists(english_language_pack))
                         {
-                            for (const ToolsetMinimal& MinTool : arch.supported_toolsets)
-                            {
-                                const Toolset toolset{vs_instance.root_path,
-                                                      dumpbin_path,
-                                                      vcvarsall_bat,
-                                                      {},
-                                                      MinTool.name,
-                                                      MinTool.vsversion,
-                                                      MinTool.cmake_generator,
-                                                      arch};
-
-                                const auto english_language_pack = dumpbin_path.parent_path() / "1033";
-
-                                if (!fs.exists(english_language_pack))
-                                {
-                                    excluded_toolsets.push_back(toolset);
-                                    break;
-                                }
-
-                                found_toolsets.push_back(toolset);
-                            }
+                            excluded_toolsets.push_back(v141_toolset);
+                            break;
                         }
+
+                        found_toolsets.push_back(v141_toolset);
+
+                        if (v140_is_available)
+                        {
+                            const Toolset v140_toolset {vs_instance.root_path,
+                                                        dumpbin_path,
+                                                        vcvarsall_bat,
+                                                        {"-vcvars_ver=14.0"},
+                                                        V_140,
+                                                        supported_architectures};
+                            found_toolsets.push_back(v140_toolset);
+                        }
+
+                        break;
                     }
                 }
+
+                continue;
             }
 
             if (major_version == "14" || major_version == "12")
@@ -320,7 +259,7 @@ namespace vcpkg::VisualStudio
                     paths_examined.push_back(vs_dumpbin_exe);
 
                     const fs::path vs_bin_dir = vcvarsall_bat.parent_path() / "bin";
-                    std::vector<ArchOption> supported_architectures;
+                    std::vector<ToolsetArchOption> supported_architectures;
                     if (fs.exists(vs_bin_dir / "vcvars32.bat"))
                         supported_architectures.push_back({"x86", CPU::X86, CPU::X86});
                     if (fs.exists(vs_bin_dir / "amd64\\vcvars64.bat"))
@@ -336,39 +275,22 @@ namespace vcpkg::VisualStudio
 
                     if (fs.exists(vs_dumpbin_exe))
                     {
-                        for (const auto& arch : supported_architectures)
+                        const Toolset toolset = {vs_instance.root_path,
+                                                 vs_dumpbin_exe,
+                                                 vcvarsall_bat,
+                                                 {},
+                                                 major_version == "14" ? V_140 : V_120,
+                                                 supported_architectures};
+
+                        const auto english_language_pack = vs_dumpbin_exe.parent_path() / "1033";
+
+                        if (!fs.exists(english_language_pack))
                         {
-                            const bool is_vs_14{major_version == "14"};
-                            const auto vs12or14_cmake = [&is_vs_14](const ArchOption& arch) noexcept
-                            {
-                                switch (arch.target_arch)
-                                {
-                                    case CPU::X86: return is_vs_14 ? cmake_V_140_x86 : cmake_V_120_x86;
-                                    case CPU::X64: return is_vs_14 ? cmake_V_140_x64 : cmake_V_120_x64;
-                                    case CPU::ARM: return is_vs_14 ? cmake_V_140_ARM : cmake_V_120_ARM;
-                                    default: return unknown; //<- Please update if you see that;
-                                };
-                            };
-
-                            const Toolset toolset = {vs_instance.root_path,
-                                                     vs_dumpbin_exe,
-                                                     vcvarsall_bat,
-                                                     {},
-                                                     is_vs_14 ? V_140.c_str() : V_120.c_str(),
-                                                     major_version,
-                                                     vs12or14_cmake(arch).c_str(),
-                                                     arch};
-
-                            const auto english_language_pack = vs_dumpbin_exe.parent_path() / "1033";
-
-                            if (!fs.exists(english_language_pack))
-                            {
-                                excluded_toolsets.push_back(toolset);
-                                break;
-                            }
-
-                            found_toolsets.push_back(toolset);
+                            excluded_toolsets.push_back(toolset);
+                            break;
                         }
+
+                        found_toolsets.push_back(toolset);
                     }
                 }
             }

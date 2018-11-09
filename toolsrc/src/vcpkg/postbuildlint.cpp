@@ -394,7 +394,6 @@ namespace vcpkg::PostBuildLint
     static LintStatus check_dll_architecture(const std::string& expected_architecture,
                                              const std::vector<fs::path>& files)
     {
-#if defined(_WIN32) 
         std::vector<FileAndArch> binaries_with_invalid_architecture;
 
         for (const fs::path& file : files)
@@ -417,7 +416,7 @@ namespace vcpkg::PostBuildLint
             print_invalid_architecture_files(expected_architecture, binaries_with_invalid_architecture);
             return LintStatus::ERROR_DETECTED;
         }
-#endif
+
         return LintStatus::SUCCESS;
     }
 #endif
@@ -772,7 +771,6 @@ namespace vcpkg::PostBuildLint
         if (!pre_build_info.build_type)
             error_count += check_matching_debug_and_release_binaries(debug_libs, release_libs);
 
-        if (!pre_build_info.skip_post_build_lib_arch_check.has_value())
         {
             std::vector<fs::path> libs;
             libs.insert(libs.cend(), debug_libs.cbegin(), debug_libs.cend());
@@ -810,11 +808,9 @@ namespace vcpkg::PostBuildLint
                         check_outdated_crt_linkage_of_dlls(dlls, toolset.dumpbin, build_info, pre_build_info);
                 }
 
-                if (!pre_build_info.skip_post_build_lib_arch_check.has_value())
-                {              
-                    error_count += check_dll_architecture(pre_build_info.target_architecture, dlls);
-                }
-
+#if defined(_WIN32)
+                error_count += check_dll_architecture(pre_build_info.target_architecture, dlls);
+#endif
                 break;
             }
             case Build::LinkageType::STATIC:

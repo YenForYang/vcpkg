@@ -23,19 +23,11 @@ namespace vcpkg
         static const std::string IFW_REPOGEN = "ifw_repogen";
     }
 
-    struct ToolsetMinimal
-    {
-            std::string name; 
-            std::string vsversion;
-            std::string cmake_generator;
-    };
-
-    struct ArchOption
+    struct ToolsetArchOption
     {
         CStringView name;
         System::CPUArchitecture host_arch;
         System::CPUArchitecture target_arch;
-        std::vector<ToolsetMinimal> supported_toolsets; 
     };
 
     struct Toolset
@@ -44,10 +36,8 @@ namespace vcpkg
         fs::path dumpbin;
         fs::path vcvarsall;
         std::vector<std::string> vcvarsall_options;
-        std::string name;
-        std::string vsversion;
-        std::string cmake_generator;
-        ArchOption arch;
+        CStringView version;
+        std::vector<ToolsetArchOption> supported_architectures;
     };
 
     namespace Build
@@ -91,10 +81,9 @@ namespace vcpkg
         const fs::path& get_tool_exe(const std::string& tool) const;
         const std::string& get_tool_version(const std::string& tool) const;
 
-        /// <summary>Retrieve a toolset matching the requested toolset name</summary>
+        /// <summary>Retrieve a toolset matching a VS version</summary>
         /// <remarks>
-        ///   Valid names are all names which can be found in the VS Platform folder and "".
-        ///   An empty string gets the latest toolset.
+        ///   Valid version strings are "v120", "v140", "v141", and "". Empty string gets the latest.
         /// </remarks>
         const Toolset& get_toolset(const Build::PreBuildInfo& prebuildinfo) const;
 

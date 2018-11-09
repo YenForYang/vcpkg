@@ -128,8 +128,6 @@ namespace vcpkg::Build
         Optional<fs::path> visual_studio_path;
         Optional<std::string> external_toolchain_file;
         Optional<ConfigurationType> build_type;
-        Optional<std::string> cmake_vs_generator;
-        Optional<std::string> skip_post_build_lib_arch_check;
     };
 
     std::string make_build_env_cmd(const PreBuildInfo& pre_build_info, const Toolset& toolset);

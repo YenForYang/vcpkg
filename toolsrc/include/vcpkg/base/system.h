@@ -21,8 +21,7 @@ namespace vcpkg::System
 
     std::string make_cmake_cmd(const fs::path& cmake_exe,
                                const fs::path& cmake_script,
-                               const std::vector<CMakeVariable>& pass_variables,
-                               const std::string& toolset = std::string{});
+                               const std::vector<CMakeVariable>& pass_variables);
 
     struct ExitCodeAndOutput
     {
@@ -91,18 +90,6 @@ namespace vcpkg::System
     };
 
     Optional<CPUArchitecture> to_cpu_architecture(const CStringView& arch);
-
-    inline CStringView to_string(const CPUArchitecture& arch) noexcept 
-	{
-        switch (arch)
-        {
-            case CPUArchitecture::X86: return "x86";
-            case CPUArchitecture::X64: return "x64";
-            case CPUArchitecture::ARM: return "ARM";
-            case CPUArchitecture::ARM64: return "ARM64";
-            default: return "unknown"; //<- Please update if you see that
-        }
-	};
 
     CPUArchitecture get_host_processor();
 
