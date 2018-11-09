@@ -89,7 +89,7 @@ function(vcpkg_configure_cmake)
     elseif(VCPKG_CHAINLOAD_TOOLCHAIN_FILE OR (VCPKG_CMAKE_SYSTEM_NAME AND NOT VCPKG_CMAKE_SYSTEM_NAME STREQUAL "WindowsStore"))
         set(GENERATOR "Ninja")
     else()
-        if(NOT ${VCPKG_CMAKE_VS_GENERATOR})
+        if(NOT VCPKG_CMAKE_VS_GENERATOR)
             message(FATAL_ERROR "Unable to determine appropriate generator for: ${VCPKG_CMAKE_SYSTEM_NAME}-${VCPKG_TARGET_ARCHITECTURE}-${VCPKG_PLATFORM_TOOLSET}")
         endif()
         set(GENERATOR "${VCPKG_CMAKE_VS_GENERATOR}")
@@ -194,7 +194,7 @@ function(vcpkg_configure_cmake)
         list(APPEND _csc_OPTIONS "-DCMAKE_OSX_SYSROOT=${VCPKG_OSX_SYSROOT}")
     endif()
 
-    
+
     set(rel_command
         ${CMAKE_COMMAND} ${_csc_SOURCE_PATH} "${_csc_OPTIONS}" "${_csc_OPTIONS_RELEASE}"
         -G ${GENERATOR} -T ${VCPKG_PLATFORM_TOOLSET}
@@ -205,7 +205,7 @@ function(vcpkg_configure_cmake)
         -G ${GENERATOR} -T ${VCPKG_PLATFORM_TOOLSET}
         -DCMAKE_BUILD_TYPE=Debug
         -DCMAKE_INSTALL_PREFIX=${CURRENT_PACKAGES_DIR}/debug)
-    
+
     if(GENERATOR STREQUAL "Ninja" AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
         if(NOT VCPKG_C_COMPILER OR NOT VCPKG_CXX_COMPILER OR NOT VCPKG_LINKER)
             vcpkg_determine_compiler_and_linker()
