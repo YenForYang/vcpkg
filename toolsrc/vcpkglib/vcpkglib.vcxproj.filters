@@ -384,4 +384,8 @@
       <Filter>Header Files\vcpkg\base</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="pch.dashboard" />
+    <None Include="strings.dashboard" />
+  </ItemGroup>
 </Project>
