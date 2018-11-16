@@ -270,7 +270,7 @@ __pycache__/
 # Visual Studio - End
 ############################################################
 
-
+/scripts/dummy/compiler_linker_info.txt
 ############################################################
 # vcpkg - Start
 ############################################################
@@ -299,6 +299,7 @@ __pycache__/
 !triplets/arm64-windows.cmake
 !triplets/x64-linux.cmake
 !triplets/x64-osx.cmake
+!triplets/x64-windows-llvm.cmake
 *.exe
 *.zip
 
