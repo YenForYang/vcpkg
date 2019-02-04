@@ -129,17 +129,18 @@ namespace vcpkg
 
     const Toolset& VcpkgPaths::get_toolset(const Build::PreBuildInfo& prebuildinfo) const
     {
+        const auto host_arch = System::get_host_processor();
+        const auto target_arch = System::to_cpu_architecture(prebuildinfo.target_architecture).value_or(host_arch);
         if (prebuildinfo.external_toolchain_file ||
             (!prebuildinfo.cmake_system_name.empty() && prebuildinfo.cmake_system_name != "WindowsStore"))
         {
-            static Toolset external_toolset = []() -> Toolset {
+            static Toolset external_toolset = [&]() -> Toolset {
                 Toolset ret;
                 ret.dumpbin = "";
-                ret.supported_architectures = {
-                    ToolsetArchOption{"", System::get_host_processor(), System::get_host_processor()}};
+                ret.arch = {ArchOption{"", host_arch, target_arch}};
                 ret.vcvarsall = "";
                 ret.vcvarsall_options = {};
-                ret.version = "external";
+                ret.vsversion = "external";
                 ret.visual_studio_root_path = "";
                 return ret;
             }();
@@ -155,15 +156,29 @@ namespace vcpkg
         std::vector<const Toolset*> candidates = Util::element_pointers(vs_toolsets);
         const auto tsv = prebuildinfo.platform_toolset.get();
         auto vsp = prebuildinfo.visual_studio_path.get();
+		//Filter by host and target architecture
+		Util::erase_remove_if(candidates, [&](const Toolset* t) {
+            return t->arch.host_arch != host_arch || t->arch.target_arch != target_arch;
+        });
         if (!vsp && !default_vs_path.empty())
         {
             vsp = &default_vs_path;
         }
 
+		// Filter by CMake VS Generator (Allows to overwrite our preferences! -> Makes triplets like: x86-windows-vs2012 possible)
+        if (const auto cmake_vs_gen = prebuildinfo.cmake_vs_generator.get(); cmake_vs_gen)
+        {
+            Util::stable_keep_if(candidates, [&](const Toolset* t) { return t->cmake_generator == *cmake_vs_gen; });
+            Checks::check_exit(VCPKG_LINE_INFO,
+                               !candidates.empty(),
+                               "Could not find Visual Studio instance at %s with %s toolset.",
+                               vsp->u8string(),
+                               *tsv);
+        }
         if (tsv && vsp)
         {
             Util::erase_remove_if(
-                candidates, [&](const Toolset* t) { return *tsv != t->version || *vsp != t->visual_studio_root_path; });
+                candidates, [&](const Toolset* t) { return *tsv != t->name || *vsp != t->visual_studio_root_path; });
             Checks::check_exit(VCPKG_LINE_INFO,
                                !candidates.empty(),
                                "Could not find Visual Studio instance at %s with %s toolset.",
@@ -176,11 +191,13 @@ namespace vcpkg
 
         if (tsv)
         {
-            Util::erase_remove_if(candidates, [&](const Toolset* t) { return *tsv != t->version; });
+            Util::erase_remove_if(candidates, [&](const Toolset* t) { return *tsv != t->name; });
             Checks::check_exit(
                 VCPKG_LINE_INFO, !candidates.empty(), "Could not find Visual Studio instance with %s toolset.", *tsv);
+            return *candidates.front();
         }
 
+		//Filter by Path
         if (vsp)
         {
             const fs::path vs_root_path = *vsp;
@@ -213,7 +230,24 @@ namespace vcpkg
         }
 
         Checks::check_exit(VCPKG_LINE_INFO, !candidates.empty(), "No suitable Visual Studio instances were found");
-        return *candidates.front();
+		// Last but not least: filter by preferred toolset selection. 
+		// Requires candidates to be sorted in: a) major version b) toolset versions. (newer > older)
+		// Maybe candidates should be sorted that way to make sure it is sorted. 
+		// Currently the code relies on the fact that VisualStudio::find_toolset_instances_preferred_first
+		// pushes it back in that way (hoepfully; not fully tested <- please make better)
+		auto preferred_pred =
+            [](const Toolset* set, const CStringView prename) noexcept {
+                return (set->name == prename.c_str());
+        };
+        const auto preferred = std::find_first_of(candidates.begin(),
+                                                 candidates.end(),
+                                                 VisualStudio::get_preferred_toolset_names().cbegin(),
+                                                 VisualStudio::get_preferred_toolset_names().cend(),
+                                                 preferred_pred);
+        Checks::check_exit(VCPKG_LINE_INFO,
+                           preferred!=candidates.cend(),
+                           "Could not find a preferred Visual Studio toolset!");
+        return **preferred;
 
 #endif
     }

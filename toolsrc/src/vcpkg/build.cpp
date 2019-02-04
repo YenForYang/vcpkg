@@ -215,20 +215,17 @@ namespace vcpkg::Build
         auto target_arch = maybe_target_arch.value_or_exit(VCPKG_LINE_INFO);
         auto host_architectures = System::get_supported_host_architectures();
 
-        for (auto&& host : host_architectures)
-        {
-            const auto it = Util::find_if(toolset.supported_architectures, [&](const ToolsetArchOption& opt) {
-                return host == opt.host_arch && target_arch == opt.target_arch;
+        const auto it = Util::find_if(host_architectures, [&](const System::CPUArchitecture& arch) {
+            return (arch == toolset.arch.host_arch && target_arch == toolset.arch.target_arch);
             });
-            if (it != toolset.supported_architectures.end()) return it->name;
-        }
+        if (it != host_architectures.end())
+        {
+            return to_string(*it);
+        };
 
         Checks::exit_with_message(VCPKG_LINE_INFO,
-                                  "Unsupported toolchain combination. Target was: %s but supported ones were:\n%s",
-                                  target_architecture,
-                                  Strings::join(",", toolset.supported_architectures, [](const ToolsetArchOption& t) {
-                                      return t.name.c_str();
-                                  }));
+                              "Unsupported host/target/toolset combination. Toolset was: %s with Host: %s and Target: %s:\n%s",
+                              toolset.name,to_string(toolset.arch.host_arch),target_architecture);
     }
 
     std::string make_build_env_cmd(const PreBuildInfo& pre_build_info, const Toolset& toolset)
@@ -370,9 +367,9 @@ namespace vcpkg::Build
                 {"PORT", config.scf.core_paragraph->name},
                 {"CURRENT_PORT_DIR", config.port_dir},
                 {"TARGET_TRIPLET", spec.triplet().canonical_name()},
-                {"VCPKG_PLATFORM_TOOLSET", toolset.version.c_str()},
-                {"VCPKG_USE_HEAD_VERSION",
-                Util::Enum::to_bool(config.build_package_options.use_head_version) ? "1" : "0"},
+            {"VCPKG_PLATFORM_TOOLSET", toolset.name.c_str()},
+            {"VCPKG_CMAKE_VS_GENERATOR", toolset.cmake_generator.c_str()},
+            {"VCPKG_USE_HEAD_VERSION", Util::Enum::to_bool(config.build_package_options.use_head_version) ? "1" : "0"},
                 {"DOWNLOADS", paths.downloads},
                 {"_VCPKG_NO_DOWNLOADS", !Util::Enum::to_bool(config.build_package_options.allow_downloads) ? "1" : "0"},
                 {"_VCPKG_DOWNLOAD_TOOL", to_string(config.build_package_options.download_tool)},
@@ -636,8 +633,7 @@ namespace vcpkg::Build
             if (pspec == spec) continue;
             const auto status_it = status_db.find_installed(pspec);
             Checks::check_exit(VCPKG_LINE_INFO, status_it != status_db.end());
-            dependency_abis.emplace_back(
-                AbiEntry{status_it->get()->package.spec.name(), status_it->get()->package.abi});
+        dependency_abis.emplace_back(AbiEntry{status_it->get()->package.spec.name(), status_it->get()->package.abi});
         }
 
         const auto pre_build_info = PreBuildInfo::from_triplet_file(paths, triplet);
@@ -787,8 +783,7 @@ namespace vcpkg::Build
             if (const auto p = liblinkage.get())
                 build_info.library_linkage = *p;
             else
-                Checks::exit_with_message(
-                    VCPKG_LINE_INFO, "Invalid library linkage type: [%s]", library_linkage_as_string);
+            Checks::exit_with_message(VCPKG_LINE_INFO, "Invalid library linkage type: [%s]", library_linkage_as_string);
         }
         std::string version = parser.optional_field("Version");
         if (!version.empty()) build_info.version = std::move(version);
@@ -820,8 +815,7 @@ namespace vcpkg::Build
 
     BuildInfo read_build_info(const Files::Filesystem& fs, const fs::path& filepath)
     {
-        const Expected<std::unordered_map<std::string, std::string>> pghs =
-            Paragraphs::get_single_paragraph(fs, filepath);
+    const Expected<std::unordered_map<std::string, std::string>> pghs = Paragraphs::get_single_paragraph(fs, filepath);
         Checks::check_exit(VCPKG_LINE_INFO, pghs.get() != nullptr, "Invalid BUILD_INFO file for package");
         return inner_create_buildinfo(*pghs.get());
     }
@@ -884,15 +878,13 @@ namespace vcpkg::Build
 
             if (variable_name == "VCPKG_PLATFORM_TOOLSET")
             {
-                pre_build_info.platform_toolset =
-                    variable_value.empty() ? nullopt : Optional<std::string>{variable_value};
+            pre_build_info.platform_toolset = variable_value.empty() ? nullopt : Optional<std::string>{variable_value};
                 continue;
             }
 
             if (variable_name == "VCPKG_VISUAL_STUDIO_PATH")
             {
-                pre_build_info.visual_studio_path =
-                    variable_value.empty() ? nullopt : Optional<fs::path>{variable_value};
+            pre_build_info.visual_studio_path = variable_value.empty() ? nullopt : Optional<fs::path>{variable_value};
                 continue;
             }
 
@@ -912,8 +904,21 @@ namespace vcpkg::Build
                 else if (Strings::case_insensitive_ascii_equals(variable_value, "release"))
                     pre_build_info.build_type = ConfigurationType::RELEASE;
                 else
-                    Checks::exit_with_message(
-                        VCPKG_LINE_INFO, "Unknown setting for VCPKG_BUILD_TYPE: %s", variable_value);
+                Checks::exit_with_message(VCPKG_LINE_INFO, "Unknown setting for VCPKG_BUILD_TYPE: %s", variable_value);
+            continue;
+        }
+
+        if (variable_name == "VCPKG_CMAKE_VS_GENERATOR")
+        {
+            pre_build_info.cmake_vs_generator =
+                variable_value.empty() ? nullopt : Optional<std::string>{variable_value};
+            continue;
+        }
+
+        if (variable_name == "VCPKG_SKIP_POST_BUILD_LIB_ARCH_CHECK")
+        {
+            pre_build_info.skip_post_build_lib_arch_check =
+                variable_value.empty() ? nullopt : Optional<std::string>{variable_value};
                 continue;
             }
 

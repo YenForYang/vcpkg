@@ -15,9 +15,18 @@ if(NOT _CMAKE_IN_TRY_COMPILE)
         set(CHARSET_FLAG)
     endif()
 
-    set(CMAKE_CXX_FLAGS " /DWIN32 /D_WINDOWS /W3 ${CHARSET_FLAG} /GR /EHsc /MP ${VCPKG_CXX_FLAGS}" CACHE STRING "")
-    set(CMAKE_C_FLAGS " /DWIN32 /D_WINDOWS /W3 ${CHARSET_FLAG} /MP ${VCPKG_C_FLAGS}" CACHE STRING "")
-    set(CMAKE_RC_FLAGS "-c65001 /DWIN32" CACHE STRING "")
+    #Isn't this bad CMake? Directly messing with compiler flags? Also: Maybe use generator expressions?
+    #add_definitions() as alternative?
+    if(CMAKE_CXX_COMPILER MATCHES "[Cc]lang")
+        set(CMAKE_CXX_FLAGS " /DWIN32 /D_WINDOWS /W3 ${CHARSET_FLAG} /GR /EHsc ${VCPKG_CXX_FLAGS}" CACHE STRING "")
+        set(CMAKE_C_FLAGS " /DWIN32 /D_WINDOWS /W3 ${CHARSET_FLAG} ${VCPKG_C_FLAGS}" CACHE STRING "")
+        set(CMAKE_RC_FLAGS "-c65001 /DWIN32" CACHE STRING "")
+    else()
+        set(CMAKE_CXX_FLAGS " /DWIN32 /D_WINDOWS /W3 ${CHARSET_FLAG} /GR /EHsc /MP ${VCPKG_CXX_FLAGS}" CACHE STRING "")
+        set(CMAKE_C_FLAGS " /DWIN32 /D_WINDOWS /W3 ${CHARSET_FLAG} /MP ${VCPKG_C_FLAGS}" CACHE STRING "")
+        set(CMAKE_RC_FLAGS "-c65001 /DWIN32" CACHE STRING "")
+    endif()
+
 
     unset(CHARSET_FLAG)
 
