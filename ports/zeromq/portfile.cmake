@@ -3,8 +3,8 @@ include(vcpkg_common_functions)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO zeromq/libzmq
-    REF 3154f3eab7fee360991e244c2d710f274e0ad4d9
-    SHA512 c964add0fb93965bc26f6e981908dd2c8c321ed9857621a4f8a35145a4cd0f087298db0eddf659f4e91e0c4c1641edbba00a3771e520771bfdcbe8fb925cfb05
+    REF e3a96778b6fae8a80eb22d5a4f411c1cfb2666de
+    SHA512 a79d74e8e17aafd7487815358663c85a81103d20682052db7b4b16fe3013603f40fde3b1413650d96066b958d3e740a34a3f13c15305b4b335ce24f034c8b740
     HEAD_REF master
 )
 
@@ -14,6 +14,12 @@ string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "dynamic" BUILD_SHARED)
 set(VCPKG_C_FLAGS "${VCPKG_C_FLAGS} \"-I${SOURCE_PATH}/builds/msvc\"")
 set(VCPKG_CXX_FLAGS "${VCPKG_CXX_FLAGS} \"-I${SOURCE_PATH}/builds/msvc\"")
 
+if("sodium" IN_LIST FEATURES)
+    set(WITH_LIBSODIUM ON)
+else()
+    set(WITH_LIBSODIUM OFF)
+endif()
+
 vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
     PREFER_NINJA
@@ -22,6 +28,7 @@ vcpkg_configure_cmake(
         -DPOLLER=select
         -DBUILD_STATIC=${BUILD_STATIC}
         -DBUILD_SHARED=${BUILD_SHARED}
+        -DWITH_LIBSODIUM=${WITH_LIBSODIUM}
         -DWITH_PERF_TOOL=OFF
     OPTIONS_DEBUG
         "-DCMAKE_PDB_OUTPUT_DIRECTORY=${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg"
@@ -36,6 +43,13 @@ if(EXISTS ${CURRENT_PACKAGES_DIR}/CMake)
 endif()
 if(EXISTS ${CURRENT_PACKAGES_DIR}/share/cmake/ZeroMQ)
     vcpkg_fixup_cmake_targets(CONFIG_PATH share/cmake/ZeroMQ)
+endif()
+
+if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
+    vcpkg_replace_string(${CURRENT_PACKAGES_DIR}/include/zmq.h
+        "defined ZMQ_STATIC"
+        "1 //defined ZMQ_STATIC"
+    )
 endif()
 
 file(READ ${CURRENT_PACKAGES_DIR}/share/zeromq/ZeroMQConfig.cmake _contents)
