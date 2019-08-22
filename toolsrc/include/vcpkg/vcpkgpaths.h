@@ -23,11 +23,19 @@ namespace vcpkg
         static const std::string IFW_REPOGEN = "ifw_repogen";
     }
 
-    struct ToolsetArchOption
+    struct ToolsetMinimal
+    {
+            std::string name; 
+            std::string vsversion;
+            std::string cmake_generator;
+    };
+
+    struct ArchOption
     {
         CStringView name;
         System::CPUArchitecture host_arch;
         System::CPUArchitecture target_arch;
+        std::vector<ToolsetMinimal> supported_toolsets; 
     };
 
     struct Toolset
@@ -36,8 +44,10 @@ namespace vcpkg
         fs::path dumpbin;
         fs::path vcvarsall;
         std::vector<std::string> vcvarsall_options;
-        CStringView version;
-        std::vector<ToolsetArchOption> supported_architectures;
+        std::string name;
+        std::string vsversion;
+        std::string cmake_generator;
+        ArchOption arch;
     };
 
     namespace Build
@@ -47,16 +57,18 @@ namespace vcpkg
 
     struct VcpkgPaths
     {
-        static Expected<VcpkgPaths> create(const fs::path& vcpkg_root_dir, const std::string& default_vs_path);
+        static Expected<VcpkgPaths> create(const fs::path& vcpkg_root_dir,
+                                           const Optional<fs::path>& vcpkg_scripts_root_dir,
+                                           const std::string& default_vs_path,
+                                           const std::vector<std::string>* triplets_dirs);
 
         fs::path package_dir(const PackageSpec& spec) const;
-        fs::path port_dir(const PackageSpec& spec) const;
-        fs::path port_dir(const std::string& name) const;
         fs::path build_info_file_path(const PackageSpec& spec) const;
         fs::path listfile_path(const BinaryParagraph& pgh) const;
 
-        const std::vector<std::string>& get_available_triplets() const;
         bool is_valid_triplet(const Triplet& t) const;
+        const std::vector<std::string>& get_available_triplets() const;
+        const fs::path get_triplet_file_path(const Triplet& triplet) const;
 
         fs::path root;
         fs::path packages;
@@ -81,9 +93,10 @@ namespace vcpkg
         const fs::path& get_tool_exe(const std::string& tool) const;
         const std::string& get_tool_version(const std::string& tool) const;
 
-        /// <summary>Retrieve a toolset matching a VS version</summary>
+        /// <summary>Retrieve a toolset matching the requested toolset name</summary>
         /// <remarks>
-        ///   Valid version strings are "v120", "v140", "v141", and "". Empty string gets the latest.
+        ///   Valid names are all names which can be found in the VS Platform folder and "".
+        ///   An empty string gets the latest toolset.
         /// </remarks>
         const Toolset& get_toolset(const Build::PreBuildInfo& prebuildinfo) const;
 
@@ -95,7 +108,9 @@ namespace vcpkg
         Lazy<std::vector<Toolset>> toolsets_vs2013;
 
         fs::path default_vs_path;
+        std::vector<fs::path> triplets_dirs;
 
         mutable std::unique_ptr<ToolCache> m_tool_cache;
+        mutable vcpkg::Cache<Triplet, fs::path> m_triplets_cache;
     };
 }

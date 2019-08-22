@@ -21,6 +21,18 @@ namespace vcpkg::System
 
     Optional<CPUArchitecture> to_cpu_architecture(StringView arch);
 
+    inline CStringView to_string(const CPUArchitecture& arch) noexcept 
+	{
+        switch (arch)
+        {
+            case CPUArchitecture::X86: return "x86";
+            case CPUArchitecture::X64: return "x64";
+            case CPUArchitecture::ARM: return "ARM";
+            case CPUArchitecture::ARM64: return "ARM64";
+            default: return "unknown"; //<- Please update if you see that
+        }
+	};
+
     CPUArchitecture get_host_processor();
 
     std::vector<CPUArchitecture> get_supported_host_architectures();
@@ -28,4 +40,6 @@ namespace vcpkg::System
     const Optional<fs::path>& get_program_files_32_bit();
 
     const Optional<fs::path>& get_program_files_platform_bitness();
+
+    int get_num_logical_cores();
 }

@@ -20,7 +20,8 @@ namespace vcpkg::System
 
     std::string make_cmake_cmd(const fs::path& cmake_exe,
                                const fs::path& cmake_script,
-                               const std::vector<CMakeVariable>& pass_variables);
+                               const std::vector<CMakeVariable>& pass_variables,
+                               const std::string& toolset = {});
 
     fs::path get_exe_path_of_current_process();
 
@@ -31,7 +32,8 @@ namespace vcpkg::System
     };
 
     int cmd_execute_clean(const ZStringView cmd_line,
-                          const std::unordered_map<std::string, std::string>& extra_env = {});
+                          const std::unordered_map<std::string, std::string>& extra_env = {},
+                          const std::string& prepend_to_path = {});
 
     int cmd_execute(const ZStringView cmd_line);
 

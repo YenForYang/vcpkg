@@ -39,7 +39,7 @@ namespace vcpkg::PostBuildLint
         }
     };
 
-    Span<const OutdatedDynamicCrt> get_outdated_dynamic_crts(const Optional<std::string>& toolset_version)
+    static Span<const OutdatedDynamicCrt> get_outdated_dynamic_crts(const Optional<std::string>& toolset_version)
     {
         static const std::vector<OutdatedDynamicCrt> V_NO_120 = {
             {"msvcp100.dll", R"(msvcp100\.dll)"},
@@ -399,6 +399,7 @@ namespace vcpkg::PostBuildLint
     static LintStatus check_dll_architecture(const std::string& expected_architecture,
                                              const std::vector<fs::path>& files)
     {
+#if defined(_WIN32) 
         std::vector<FileAndArch> binaries_with_invalid_architecture;
 
         for (const fs::path& file : files)
@@ -421,7 +422,7 @@ namespace vcpkg::PostBuildLint
             print_invalid_architecture_files(expected_architecture, binaries_with_invalid_architecture);
             return LintStatus::ERROR_DETECTED;
         }
-
+#endif
         return LintStatus::SUCCESS;
     }
 #endif
@@ -462,7 +463,7 @@ namespace vcpkg::PostBuildLint
             return LintStatus::ERROR_DETECTED;
         }
 #endif
-
+        Util::unused(expected_architecture, files);
         return LintStatus::SUCCESS;
     }
 
@@ -778,6 +779,7 @@ namespace vcpkg::PostBuildLint
         if (!pre_build_info.build_type)
             error_count += check_matching_debug_and_release_binaries(debug_libs, release_libs);
 
+        if (!pre_build_info.skip_post_build_lib_arch_check.has_value())
         {
             std::vector<fs::path> libs;
             libs.insert(libs.cend(), debug_libs.cbegin(), debug_libs.cend());
@@ -815,9 +817,11 @@ namespace vcpkg::PostBuildLint
                         check_outdated_crt_linkage_of_dlls(dlls, toolset.dumpbin, build_info, pre_build_info);
                 }
 
-#if defined(_WIN32)
-                error_count += check_dll_architecture(pre_build_info.target_architecture, dlls);
-#endif
+                if (!pre_build_info.skip_post_build_lib_arch_check.has_value())
+                {              
+                    error_count += check_dll_architecture(pre_build_info.target_architecture, dlls);
+                }
+
                 break;
             }
             case Build::LinkageType::STATIC:
@@ -857,14 +861,15 @@ namespace vcpkg::PostBuildLint
     size_t perform_all_checks(const PackageSpec& spec,
                               const VcpkgPaths& paths,
                               const PreBuildInfo& pre_build_info,
-                              const BuildInfo& build_info)
+                              const BuildInfo& build_info,
+                              const fs::path& port_dir)
     {
         System::print2("-- Performing post-build validation\n");
         const size_t error_count = perform_all_checks_and_return_error_count(spec, paths, pre_build_info, build_info);
 
         if (error_count != 0)
         {
-            const fs::path portfile = paths.ports / spec.name() / "portfile.cmake";
+            const fs::path portfile = port_dir / "portfile.cmake";
             System::print2(System::Color::error,
                            "Found ",
                            error_count,
